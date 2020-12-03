@@ -105,6 +105,7 @@ int findCMD_Separator(char ** currCMD_Separator, char * input){
 	int i = 0;
 	char foundSeparator = 0;
 	int len = strlen(input);
+
 	for ( i = 0 ; i < len; i ++){
 		if(input[i] == ';'){
 			*currCMD_Separator = cmdSeparator[0];
@@ -115,10 +116,12 @@ int findCMD_Separator(char ** currCMD_Separator, char * input){
 			foundSeparator = 1;
 			break;
 		}else if(input[i] == '>'){
+			printf("input: %s\tlen: %d\ti: %d\n", input, len, i);
 			*currCMD_Separator = cmdSeparator[2];
 			if(i + 1 < len && input[i+1] == '>') {
-				currCMD_Separator = cmdSeparator[3];
+				*currCMD_Separator = cmdSeparator[3];
 			}
+			printf("selected separator: %s\n", currCMD_Separator);
 			foundSeparator = 1;
 			break;
 		}
@@ -132,55 +135,74 @@ int findCMD_Separator(char ** currCMD_Separator, char * input){
 void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled, char * prevOut, char * prevCMDSeparator){
 	char cmdStrCpy [1024];
 	char * args [1024];
-	char * cmd;
-	char * token;
+	char * cmd = NULL;
+	char * token = NULL;
 	char * delim = " ";
 	int link[2];
 	int i = 0;
 	int prevOutLen = 0;
 	FILE * inFD = 0;
 	pid_t pid;
+	//need to set everything null, since some memory carry over
+	//because it is statically allocated
+	memset(args, 0, 1024);
+	memset(cmdStrCpy, 0, 1024);
+	//copy the cmd str into the copy version
 	memcpy(cmdStrCpy, cmdStr, len);
 	cmd = strtok(cmdStrCpy, delim);
 	token = cmd;
 	if(cmd == NULL) return;
-
 	//if the previous cmd was a redirection
 	//than this current cmd is a file (or soon to be file)
 	if (prevCMDSeparator != NULL) {
-		printf("contain previous cmd separator\n");
+		//if the previous cmd separator was a redirection (>)
+		//then this current cmd is a file (or soon to be file)
 		if (strcmp(prevCMDSeparator, cmdSeparator[2]) == 0) {
 			//overwrite the file specified in cmd and copy the previous out to
 			//curr out and return
 			inFD = fopen(cmd, "w");
+			//if prevOut is not null then write to file
 			if (prevOut != NULL)
 				fprintf(inFD, "%s", prevOut);
+			//close the file
 			fclose(inFD);
+			//if prevOut is not null then copy that to the current out
 			if (prevOut != NULL) {
 				memcpy(out, prevOut, strlen(prevOut) * sizeof(char));
 			}
+			if(strlen(out) > 0) *outFilled = 1;
 			return;
 		}
-		//if the previous cmd was an redirect and append
-		//than this current cmd is a file (or soon to be file)
+		//if the previous cmd was an redirect and append (>>)
+		//then this current cmd is a file (or soon to be file)
 		else if (strcmp(prevCMDSeparator, cmdSeparator[3]) == 0) {
 			//append the prev output to the file, and read the content of the file
 			// including the prev output, then copy that to the curr out and return
-			int c = 0;
-			char * ptr;
+			char buffer [2048];
+			//open the file
 			inFD = fopen(cmd, "a");
+			if (inFD == NULL) {
+				printf("There was an error attempting to open the file\n");
+				return;
+			}
+			//if we have a previous output than append it to the file
 			if (prevOut != NULL)
 				fprintf(inFD, "%s", prevOut);
-			ptr = out;
-			while (1) {
-				c = fgetc(inFD);
-				if (feof(inFD))
-					break;
-				printf("%c", c);
-				memcpy(ptr, c, sizeof(char));
-				ptr = ptr + 1;
-			}
+			//close the file
 			fclose(inFD);
+			//reopen the file so we can read the content for next output
+			inFD = fopen(cmd, "r");
+
+			if(inFD == NULL) return;
+			while (fgets(buffer, sizeof(buffer), inFD) != NULL ) {
+				printf("content: %s\n", buffer);
+				strcat(out, buffer);
+			}
+			//close the file
+			fclose(inFD);
+			if(strlen(out) > 0) *outFilled = 1;
+
+			//return since there is nothign else to dod
 			return;
 		}
 	}
@@ -188,7 +210,7 @@ void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled
 	while(token != NULL){
 		args[i] = token;
 		token = strtok(NULL, delim);
-		printf("%d\n", i);
+		//printf("%d\n", i);
 		i++;
 	}
 	//according to execvp the args array must contain a NULL value at the end
@@ -199,23 +221,21 @@ void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled
 		exit(EXIT_FAILURE);
 	}
 	//debug
-	printf("%s, %d\n", cmdStrCpy, len);
+	/*printf("%s, %d\n", cmdStrCpy, len);
 	printf("cmd: %s\n", cmd);
 	int c = 0;
 	for (c = 0; c < i; c++) {
 		printf("args[%d]: %s\n", c, args[c]);
-	}
+	}*/
 
 	pid = fork();
 	//if child process execute command
 	if(pid == 0){
-		/*if(prevOut != NULL) {
-			printf("poop\n");
-			args[i] = prevOut;
-			i++;
-			args[i] = NULL;
-		}*/
 		//set the child's process to be the stdout to this process
+		if(prevCMDSeparator != NULL && strcmp(prevCMDSeparator, cmdSeparator[1]) == 0){
+			args[i] = prevOut;
+			args[i+1] = NULL;
+		}
 		dup2(link[1], STDOUT_FILENO);
 		close(link[1]);
 		close(link[0]);
@@ -226,48 +246,47 @@ void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled
 		close(link[1]);
 		*outLen = read(link[0], out, *outLen);
 		if(*outLen > 0) *outFilled = 1;
-		printf("Output: (%.*s)\n", *outLen, out);
 		wait(NULL);
+		close(link[0]);
 	}
 }
 void AnalyzeInput(char * input){
 	char * currCMDSeparator = NULL;
 	char * prevCMDSeparator = NULL;
-	char prevOut [2048];
-	char currOut [2048];
-	char currCMD_Separator [10];
-	char * inputCpy [1024];
-	char * token;
+	char prevOut [4096];
+	char currOut [4096];
+	char inputCPY [1024];
+	char * token = NULL;
 	char containCurrOut = 0;
 	int lenOfCurrCMD = 0;
 	int outLen = 2048;
 	int currCMD_Separator_index = 0;
 
-	memset(prevOut, 0, 2048 * sizeof(char));
-	memset(currOut, 0, 2048 * sizeof(char));
+	memset(prevOut, 0, 4096 * sizeof(char));
+	memset(currOut, 0, 4096 * sizeof(char));
 
-	//copy the input, for some reason the original is modified if we
-	//strtok it??
-	strcpy((char*)inputCpy, input);
-	token = strtok((char*)inputCpy, delimiter);
+	memcpy(inputCPY, input, 1024 * sizeof(char));
+
+	token = strtok(inputCPY, delimiter);
 
 	while(token != NULL){
 		//get the index of the next separator of this current input
 		//as well as recoding what the separator was
 		currCMD_Separator_index = findCMD_Separator (&currCMDSeparator, input);
 		lenOfCurrCMD = currCMD_Separator_index;
-		printf("\nprevious cmd separator: %s\n", prevCMDSeparator);
-		printf("previous output: %s\n", prevOut);
+		//printf("\nprevious cmd separator: %s\n", prevCMDSeparator);
+		//printf("previous output: %s\n", prevOut);
 		//if there exists no separator then execute only one command
 		if(lenOfCurrCMD < 0){
-			printf("called here 2nd\n");
+			//printf("called here 2nd\n");
 			containCurrOut = 0;
-			outLen = 2048;
-			memset(currOut, 0, 2048);
+			outLen = 4096;
+			memset(currOut, 0, 4096);
 			//no separator, we can use whatever its left of the input
 			//since it is only one command
-			if(strcmp(token,"cd") == 0 || strcmp(token,"pwd") == 0){
+			if(strcmp(token,"cd") == 0){
 				cdCMD_Func(input);
+				break;
 			}
 			//if it is something else then we exec
 
@@ -276,37 +295,46 @@ void AnalyzeInput(char * input){
 			//just exec the current command and print out any output
 			if(prevCMDSeparator == NULL || strcmp(prevCMDSeparator, cmdSeparator[0]) == 0){
 				execCMD(input, strlen(input), currOut, &outLen, &containCurrOut, NULL, NULL);
-				printf("%s", currOut);
+				if(containCurrOut == 1) printf("%s", currOut);
 				return;
 			}
 			//if the prevCMDSeparator was "|",">",">>" then we
 			//need to use the previous output as well
 			execCMD(input, strlen(input), currOut, &outLen, &containCurrOut, prevOut, prevCMDSeparator);
-			printf("%s", currOut);
+			if(containCurrOut == 1) printf("%s", currOut);
+			input = input + strlen(input);
+			token = NULL;
 		}else{
-
-			//note: cd is not implemented in this section yet
-
-			printf("called here\n");
+			//printf("called here\n");
 			//reset current output
 			//and outlen
 			containCurrOut = 0;
-			outLen = 2048;
-			memset(currOut, 0, 2048);
+			outLen = 4096;
+			memset(currOut, 0, 4096);
+
+			if (strcmp(token, "cd") == 0) {
+				cdCMD_Func(input);
+				memcpy(currOut, cwd, strlen(cwd));
+				break;
+			}
+
 			//at least one separator, ie there are 2 command present
 			//left cmd and right cmd
 			execCMD(input, lenOfCurrCMD, currOut, &outLen, &containCurrOut, prevOut, prevCMDSeparator);
 
 			//go to next cmd by the length of this current cmd
-			input = input + lenOfCurrCMD;
+			input = input + lenOfCurrCMD + strlen(currCMDSeparator);
 			//find the next token in the next command based on the delimiter
-			token = strtok(inputCpy + lenOfCurrCMD, delimiter);
+			token = strtok(inputCPY + lenOfCurrCMD + strlen(currCMDSeparator), delimiter);
+			//printf("next input: %s\n", input);
+			//printf("next token: %s\n", token);
+			//printf("current cmd separator: %s\t%d\n", currCMDSeparator, strlen(currCMDSeparator));
 			//set the previous cmd separator to the current cmd separator
 			prevCMDSeparator = currCMDSeparator;
 			//copy the curr out to the prev out
 			memcpy(prevOut, currOut, 2048 * sizeof(char));
+			currCMDSeparator = NULL;
 		}
-		return;
 	}
 }
 
@@ -314,12 +342,6 @@ int main() {
 	char input [1024];
 	getcwd(cwd,sizeof(cwd));
 	replaceAllCharacter(cwd, '\\','/');
-
-	//exec another program in this format
-	/*char * test = "ls";
-	char * outTest [2] = {"ls", NULL};	//the actual command then the args, and then null
-	execvp(test, outTest);
-	*/
 
 	while(1){
 		printf("%s $ ",cwd);
