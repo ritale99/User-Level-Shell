@@ -9,7 +9,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
-
+#include <signal.h>
+#include <setjmp.h>
 //require for string operations
 #include <string.h>
 //require to check if directory exist
@@ -27,6 +28,7 @@ char * cmdSeparator [] = {";","|",">",">>"};
 char * delimiter = " ";
 char * exitCMD = "exit\n";
 char cwd [1024];
+static volatile sig_atomic_t jump_active = 0;
 
 char replaceAllCharacter(char * str, char target, char replacement){
 	if(str == NULL) return 0;
@@ -337,13 +339,31 @@ void AnalyzeInput(char * input){
 		}
 	}
 }
+static sigjmp_buf env;
 
+void sigint_handler(int signo){
+	if(!jump_active){
+		return;
+	}
+	printf("%c",'\n');
+	siglongjmp(env, 42);
+}
 int main() {
 	char input [1024];
 	getcwd(cwd,sizeof(cwd));
 	replaceAllCharacter(cwd, '\\','/');
 
+	//take care of the sigaction to restart the loop	
+	struct sigaction s;
+    	s.sa_handler = sigint_handler;
+    	sigemptyset(&s.sa_mask);
+    	s.sa_flags = SA_RESTART;
+    	sigaction(SIGINT, &s, NULL);
+
 	while(1){
+		if(sigsetjmp(env,1)!=42){
+			jump_active =1;
+		}
 		printf("%s $ ",cwd);
 		//get input from user
 		fgets(input, 1024, stdin);
