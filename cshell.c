@@ -134,6 +134,10 @@ int findCMD_Separator(char ** currCMD_Separator, char * input){
 	return -1;
 }
 
+void sig_handler_parent(int signum){}
+void sig_handler_child(int signum){
+	kill(getppid(), SIGUSR1);
+}
 void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled, char * prevOut, char * prevCMDSeparator){
 	char cmdStrCpy [1024];
 	char * args [1024];
@@ -142,7 +146,6 @@ void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled
 	char * delim = " ";
 	int link[2];
 	int i = 0;
-	int prevOutLen = 0;
 	FILE * inFD = 0;
 	pid_t pid;
 	//need to set everything null, since some memory carry over
@@ -245,6 +248,7 @@ void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled
 		execvp(cmd, args);
 		exit(0);
 	}else{
+		//if parent
 		close(link[1]);
 		*outLen = read(link[0], out, *outLen);
 		if(*outLen > 0) *outFilled = 1;
@@ -341,6 +345,7 @@ void AnalyzeInput(char * input){
 }
 static sigjmp_buf env;
 
+/*
 void sigint_handler(int signo){
 	if(!jump_active){
 		return;
@@ -348,22 +353,49 @@ void sigint_handler(int signo){
 	printf("%c",'\n');
 	siglongjmp(env, 42);
 }
+*/
+void sig_handler(int signum){
+	pid_t pid;
+	pid = getpid();
+
+	//if child, terminate it and continue the loop execution 
+	if(pid == 0){
+		printf("%c",'\n');	
+		kill(pid, SIGKILL);
+		//waitpd(pid,&status,0);
+		siglongjmp(env, 42);
+	}
+	
+	//if parent, continue the loop execution
+	else{
+		printf("%c",'\n');	
+		siglongjmp(env, 42);
+	}
+}
 int main() {
 	char input [1024];
 	getcwd(cwd,sizeof(cwd));
 	replaceAllCharacter(cwd, '\\','/');
 
+	/*
 	//take care of the sigaction to restart the loop	
 	struct sigaction s;
     	s.sa_handler = sigint_handler;
     	sigemptyset(&s.sa_mask);
     	s.sa_flags = SA_RESTART;
     	sigaction(SIGINT, &s, NULL);
+	*/
+	
+	//register the signal handler for ctrl-c
+	signal(SIGINT, sig_handler);
 
 	while(1){
+	
 		if(sigsetjmp(env,1)!=42){
 			jump_active =1;
 		}
+	
+		
 		printf("%s $ ",cwd);
 		//get input from user
 		fgets(input, 1024, stdin);
