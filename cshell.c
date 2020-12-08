@@ -200,7 +200,7 @@ void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled
 
 			if(inFD == NULL) return;
 			while (fgets(buffer, sizeof(buffer), inFD) != NULL ) {
-				printf("content: %s\n", buffer);
+				//printf("content: %s\n", buffer);
 				strcat(out, buffer);
 			}
 			//close the file
@@ -238,8 +238,23 @@ void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled
 	if(pid == 0){
 		//set the child's process to be the stdout to this process
 		if(prevCMDSeparator != NULL && strcmp(prevCMDSeparator, cmdSeparator[1]) == 0){
-			args[i] = prevOut;
-			args[i+1] = NULL;
+			char * ptr = prevOut;
+			char * _delim = "\n";
+			char * tokPtr = strtok(ptr, _delim);
+			while(tokPtr != NULL){
+				//printf("temp: %s\n", temp);
+				//printf("tok: %s\n", tokPtr);
+				args[i] = tokPtr;
+				tokPtr = strtok(NULL, _delim);
+				i++;
+			}
+			args[i] = NULL;
+			i++;
+			/*int c = 0;
+			for(c = 0; c < i; c++) {
+				printf("args[%d]: %s\n", c, args[c]);
+			}*/
+			//args[i++] = "a.out starwar.txt";
 		}
 		dup2(link[1], STDOUT_FILENO);
 		close(link[1]);
@@ -301,13 +316,13 @@ void AnalyzeInput(char * input){
 			//just exec the current command and print out any output
 			if(prevCMDSeparator == NULL || strcmp(prevCMDSeparator, cmdSeparator[0]) == 0){
 				execCMD(input, strlen(input), currOut, &outLen, &containCurrOut, NULL, NULL);
-				if(containCurrOut == 1) printf("%s", currOut);
+				if(strlen(currOut) > 0) printf("%s", currOut);
 				return;
 			}
 			//if the prevCMDSeparator was "|",">",">>" then we
 			//need to use the previous output as well
 			execCMD(input, strlen(input), currOut, &outLen, &containCurrOut, prevOut, prevCMDSeparator);
-			if(containCurrOut == 1) printf("%s", currOut);
+			if(strlen(currOut) > 0) printf("%s", currOut);
 			input = input + strlen(input);
 			token = NULL;
 		}else{
@@ -316,11 +331,12 @@ void AnalyzeInput(char * input){
 			//and outlen
 			containCurrOut = 0;
 			outLen = 4096;
+			offset = lenOfCurrCMD;
 			memset(currOut, 0, 4096);
 
 			if (strcmp(token, "cd") == 0) {
 				cdCMD_Func(input);
-				memcpy(currOut, cwd, strlen(cwd));
+				memcpy(prevOut, cwd, strlen(cwd));
 				break;
 			}
 
@@ -331,13 +347,22 @@ void AnalyzeInput(char * input){
 			//go to next cmd by the length of this current cmd
 			input = input + lenOfCurrCMD + strlen(currCMDSeparator);
 			//find the next token in the next command based on the delimiter
-			token = strtok(inputCPY + lenOfCurrCMD + strlen(currCMDSeparator), delimiter);
-			//printf("next input: %s\n", input);
-			//printf("next token: %s\n", token);
-			//printf("current cmd separator: %s\t%d\n", currCMDSeparator, strlen(currCMDSeparator));
+			memcpy(inputCPY, input, strlen(input));
+			token = strtok(inputCPY, delimiter);
+
+			/*
+			printf("next input: %s\n", input);
+			printf("inputCPY: %s\n", inputCPY);
+			printf("next token: %s\n", token);
+			printf("current cmd separator: %s\t%d\n", currCMDSeparator, strlen(currCMDSeparator));
+			printf("out: %s\n", currOut);
+			*/
 			//set the previous cmd separator to the current cmd separator
 			prevCMDSeparator = currCMDSeparator;
 			//copy the curr out to the prev out
+			if(strlen(currOut) > 0){
+				printf("%s", currOut);
+			}
 			memcpy(prevOut, currOut, 2048 * sizeof(char));
 			currCMDSeparator = NULL;
 		}
