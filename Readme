@@ -16,11 +16,24 @@ Summary of functions:
 replaceAllCharacter:
 		-takes in string, replace target character with a character to replace it with
 AnalyzeInput: 
-		-takes in string
-		-
-execCMd:
-		-
+		-takes in intput command string
+		-check if there is no separator, in which we execute only one command
+		-check if there were no previus command or if there was a semicolon, in which we can call execCMD and print any output
+		-check if the previous separator was |, >, or >>, in which case we need to use the previous command's output
+		-calls execCMD to carry out the commands
+		-print any output
+execCMD:
+		-find the command to execute
+		-the previous output, previous separator, and current command info is passed in
+		-carry out commands here
+		-fork, and execute if we are in the child
+
+cdCMD_func:
+		-execute the change directory command
+		-use chdir
 
 Signal handler:
 	-control c will end a child process and continue the loop of showing the prompt
-	-exit will end execution of the program completely 
+	-exit will end execution of the program completely
+	-if child, terminate the child
+	-if parent, jump to the start of the infinite while loop

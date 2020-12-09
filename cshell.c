@@ -242,11 +242,8 @@ void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled
 			}
 			args[i] = NULL;
 			i++;
-			/*int c = 0;
-			for(c = 0; c < i; c++) {
-				printf("args[%d]: %s\n", c, args[c]);
-			}*/
-			//args[i++] = "a.out starwar.txt";
+		
+
 		}
 		dup2(link[1], STDOUT_FILENO);
 		close(link[1]);
@@ -342,13 +339,6 @@ void AnalyzeInput(char * input){
 			memcpy(inputCPY, input, strlen(input));
 			token = strtok(inputCPY, delimiter);
 
-			/*
-			printf("next input: %s\n", input);
-			printf("inputCPY: %s\n", inputCPY);
-			printf("next token: %s\n", token);
-			printf("current cmd separator: %s\t%d\n", currCMDSeparator, strlen(currCMDSeparator));
-			printf("out: %s\n", currOut);
-			*/
 			//set the previous cmd separator to the current cmd separator
 			prevCMDSeparator = currCMDSeparator;
 			//copy the curr out to the prev out
