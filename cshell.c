@@ -1,8 +1,9 @@
 /*
- * so.c
+ * cshell.c
  *
  *  Created on: Nov 6, 2020
  *      Author: Minhesota Geusic
+ *      Rithvik Aleshetty
  */
 
 #include <stdlib.h>
@@ -39,11 +40,6 @@ char replaceAllCharacter(char * str, char target, char replacement){
 		i++;
 	}
 	return 1;
-}
-void getUserInput(char * format, char * buffer, int lenght){
-	if(format == NULL || buffer == NULL || lenght <= 0) return;
-	scanf(format, buffer);
-	printf("%s\n", buffer);
 }
 
 void cdCMD_Func(char * cmd){
@@ -366,15 +362,6 @@ void AnalyzeInput(char * input){
 }
 static sigjmp_buf env;
 
-/*
-void sigint_handler(int signo){
-	if(!jump_active){
-		return;
-	}
-	printf("%c",'\n');
-	siglongjmp(env, 42);
-}
-*/
 void sig_handler(int signum){
 	pid_t pid;
 	pid = getpid();
@@ -397,15 +384,6 @@ int main() {
 	char input [1024];
 	getcwd(cwd,sizeof(cwd));
 	replaceAllCharacter(cwd, '\\','/');
-
-	/*
-	//take care of the sigaction to restart the loop	
-	struct sigaction s;
-    	s.sa_handler = sigint_handler;
-    	sigemptyset(&s.sa_mask);
-    	s.sa_flags = SA_RESTART;
-    	sigaction(SIGINT, &s, NULL);
-	*/
 	
 	//register the signal handler for ctrl-c
 	signal(SIGINT, sig_handler);
