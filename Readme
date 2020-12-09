@@ -1,0 +1,26 @@
+Compilation/steps:
+	-make clean
+	-make
+	-./cshell
+
+Some notable variables:
+	-list of cmdSeparators: array of characters cat can be in the input
+	-delimiter: space is used as delimeter
+
+Summary of functions:
+	main:
+		-Holds the infinite while loop
+		-Exits execution if "exit" is inputted
+		-calls replaceAllCharacter
+		-then call the AnalyzeInput to take care of the execution of the commands
+replaceAllCharacter:
+		-takes in string, replace target character with a character to replace it with
+AnalyzeInput: 
+		-takes in string
+		-
+execCMd:
+		-
+
+Signal handler:
+	-control c will end a child process and continue the loop of showing the prompt
+	-exit will end execution of the program completely 

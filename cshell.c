@@ -134,10 +134,6 @@ int findCMD_Separator(char ** currCMD_Separator, char * input){
 	return -1;
 }
 
-void sig_handler_parent(int signum){}
-void sig_handler_child(int signum){
-	kill(getppid(), SIGUSR1);
-}
 void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled, char * prevOut, char * prevCMDSeparator){
 	char cmdStrCpy [1024];
 	char * args [1024];
@@ -331,7 +327,7 @@ void AnalyzeInput(char * input){
 			//and outlen
 			containCurrOut = 0;
 			outLen = 4096;
-			offset = lenOfCurrCMD;
+			//offset = lenOfCurrCMD;
 			memset(currOut, 0, 4096);
 
 			if (strcmp(token, "cd") == 0) {
