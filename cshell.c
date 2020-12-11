@@ -252,10 +252,15 @@ void execCMD (char * cmdStr, int len, char * out, int * outLen, char * outFilled
 		execvp(cmd, args);
 		exit(0);
 	}else{
-		//if parent
+		ssize_t byteRead;
+		ssize_t byteReadSoFar = 0;
 		close(link[1]);
-		*outLen = read(link[0], out, *outLen);
-		if(*outLen > 0) *outFilled = 1;
+		//read from the pipe
+		while( ( byteRead = read(link[0], out + byteReadSoFar, *outLen) ) > 0 ) {
+			*outFilled = 1;
+			*outLen -= byteRead;
+			byteReadSoFar += byteRead;
+		}
 		wait(NULL);
 		close(link[0]);
 	}
@@ -342,7 +347,8 @@ void AnalyzeInput(char * input){
 			//set the previous cmd separator to the current cmd separator
 			prevCMDSeparator = currCMDSeparator;
 			//copy the curr out to the prev out
-			if(strlen(currOut) > 0){
+			if(strlen(currOut) != 0 &&
+					( strcmp(currCMDSeparator, "|\0") != 0 && strcmp(currCMDSeparator, ">\0") != 0 && strcmp(currCMDSeparator, ">>\0") != 0 )){
 				printf("%s", currOut);
 			}
 			memcpy(prevOut, currOut, 2048 * sizeof(char));
