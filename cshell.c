@@ -114,12 +114,12 @@ int findCMD_Separator(char ** currCMD_Separator, char * input){
 			foundSeparator = 1;
 			break;
 		}else if(input[i] == '>'){
-			printf("input: %s\tlen: %d\ti: %d\n", input, len, i);
+			//printf("input: %s\tlen: %d\ti: %d\n", input, len, i);
 			*currCMD_Separator = cmdSeparator[2];
 			if(i + 1 < len && input[i+1] == '>') {
 				*currCMD_Separator = cmdSeparator[3];
 			}
-			printf("selected separator: %s\n", currCMD_Separator);
+			//printf("selected separator: %s\n", currCMD_Separator);
 			foundSeparator = 1;
 			break;
 		}
@@ -347,8 +347,7 @@ void AnalyzeInput(char * input){
 			//set the previous cmd separator to the current cmd separator
 			prevCMDSeparator = currCMDSeparator;
 			//copy the curr out to the prev out
-			if(strlen(currOut) != 0 &&
-					( strcmp(currCMDSeparator, "|\0") != 0 && strcmp(currCMDSeparator, ">\0") != 0 && strcmp(currCMDSeparator, ">>\0") != 0 )){
+			if(strlen(currOut) != 0 && strcmp(currCMDSeparator, ";") == 0){
 				printf("%s", currOut);
 			}
 			memcpy(prevOut, currOut, 2048 * sizeof(char));
